@@ -1,0 +1,65 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20200828112959
+Username: WESTCOASTLTD\wcadmin.fs
+RunAs User: WESTCOASTLTD\wcadmin.fs
+Machine: BNWINFRATS01 (Microsoft Windows NT 6.3.9600.0)
+Host Application: C:\Windows\system32\WindowsPowerShell\v1.0\PowerShell_ISE.exe
+Process ID: 5612
+PSVersion: 5.1.14409.1018
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.14409.1018
+BuildVersion: 10.0.14409.1018
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is C:\Scripts\VMWare\VMware-HostPatcher\logs\2020-08-28_actions.log
+
+Name                           Port  User
+----                           ----  ----
+bnwvcsa01.westcoast.co.uk      443   WESTCOASTLTD\wcadmin.fs
+
+DefaultVIServerMode         : Single
+ProxyPolicy                 : UseSystemProxy
+ParticipateInCEIP           : False
+CEIPDataTransferProxyPolicy : UseSystemProxy
+DisplayDeprecationWarnings  : True
+InvalidCertificateAction    : Ignore
+WebOperationTimeoutSeconds  : 3600
+VMConsoleWindowBrowser      :
+Scope                       : Session
+
+
+DefaultVIServerMode         : Single
+ProxyPolicy                 :
+ParticipateInCEIP           :
+CEIPDataTransferProxyPolicy :
+DisplayDeprecationWarnings  :
+InvalidCertificateAction    :
+WebOperationTimeoutSeconds  :
+VMConsoleWindowBrowser      :
+Scope                       : User
+
+
+DefaultVIServerMode         :
+ProxyPolicy                 :
+ParticipateInCEIP           : False
+CEIPDataTransferProxyPolicy :
+DisplayDeprecationWarnings  :
+InvalidCertificateAction    : Ignore
+WebOperationTimeoutSeconds  : 3600
+VMConsoleWindowBrowser      :
+Scope                       : AllUsers
+
+Importing function C:\Scripts\VMWare\VMware-HostPatcher\functions\Shutdown-RunningVM.ps1
+Importing function C:\Scripts\VMWare\VMware-HostPatcher\functions\Start-AutostartVMs.ps1
+Importing function C:\Scripts\VMWare\VMware-HostPatcher\functions\Start-HostMaintenance.ps1
+Importing function C:\Scripts\VMWare\VMware-HostPatcher\functions\Stop-HostMaintenance.ps1
+Importing function C:\Scripts\VMWare\VMware-HostPatcher\functions\Update-HostBaseline.ps1
+Importing function C:\Scripts\VMWare\VMware-HostPatcher\functions\Wait-AllVMsDown.ps1
+**********************
+Windows PowerShell transcript end
+End time: 20200828112959
+**********************
