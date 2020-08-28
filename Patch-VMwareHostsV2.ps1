@@ -74,7 +74,6 @@ begin {
       . $f
     }
   }
-
 }
 
 process {
@@ -84,56 +83,44 @@ process {
     $currentesxhost = get-vmhost $esxhost 
     Write-Host “Processing $currentesxhost”
     Write-Host “====================================================================”
+    do {
 
-    # Collect current host complieance status
-    $hostStartingComplianceState = $null
-    $hostStartingComplianceState = (get-compliance -entity $esxhost)
-
-    # If there is non-compliand baselines, first shut down all the VM-s of the host
-    If ($hostStartingComplianceState.status -contains "NotCompliant") {
-      
-      # Update - phase 1 - Attempt to shut down all the VM-s on the host first. Either using VMware tools for a graceful shutdown, or hard shutdown
-      write-host "$esxhost has some remediation work to do, shutting down VMs and placing host into maintenance mode"
-      $runningVMs = $null
-      $runningVMs = ($currentesxhost | Get-VM | Where-Object { $_.PowerState -eq “PoweredOn” })
-      Foreach ($vm in $runningVMs) {
-        Shutdown-RunningVM -vm $vm -vmstoleave $vmstoleave
+      # Collect current host complieance status
+      $hostStartingComplianceState = $null
+      $hostStartingComplianceState = (get-compliance -entity $esxhost)
+      # If there is non-compliand baselines, first shut down all the VM-s of the host
+      If ($hostStartingComplianceState.status -contains "NotCompliant") {     
+        # Update - phase 1 - Attempt to shut down all the VM-s on the host first. Either using VMware tools for a graceful shutdown, or hard shutdown
+        write-host "$esxhost has some remediation work to do, shutting down VMs and placing host into maintenance mode"
+        $runningVMs = $null
+        $runningVMs = ($currentesxhost | Get-VM | Where-Object { $_.PowerState -eq “PoweredOn” })
+        Foreach ($vm in $runningVMs) {
+          Shutdown-RunningVM -vm $vm -vmstoleave $vmstoleave
+        }
+        # Wait for the completion of the shutodwn of all the VM-s
+        Wait-AllVMsDown -esxhost $esxhost -currentesxhost $currentesxhost
+        # Now that all VM-s are down, we put the host into maintenace mode
+        Start-HostMaintenance -esxhost $esxhost
       }
-
-      # Wait for the completion of the shutodwn of all the VM-s
-      Wait-AllVMsDown -esxhost $esxhost -currentesxhost $currentesxhost
-
-      # Now that all VM-s are down, we put the host into maintenace mode
-      Start-HostMaintenance -esxhost $esxhost
-
-    }
-
-    # Update - phase 2 - Next, update all non-compliand baselines
-    Foreach ($hostbasecomp in $hostStartingComplianceState) {
-      
-      If ($hostbasecomp.status -eq "Compliant") {
-
-        Write-Host "The host $esxhost is compliant for the "$hostbasecomp.Baseline.name" Baseline, skipping to next Baseline"
-      
+      # Update - phase 2 - Next, update all non-compliand baselines
+      Foreach ($hostbasecomp in $hostStartingComplianceState) {    
+        If ($hostbasecomp.status -eq "Compliant") {
+          Write-Host "The host $esxhost is compliant for the "$hostbasecomp.Baseline.name" Baseline, skipping to next Baseline"    
+        }
+        else {
+          Update-HostBaseline -esxhost $esxhost -hostbasecomp $hostbasecomp
+        }
       }
-      else {
-
-        Update-HostBaseline -esxhost $esxhost -hostbasecomp $hostbasecomp
-
-      }
-
-    }
-
+      # Repeat the above actions until all the compliance status is compliant
+    } until ($hostStartingComplianceState.status -notcontains "NotCompliant")   
+    
     # Update - phase 3 - Finally, when all baselines has been made compliant, take the server out of maintenance and restart VM-s on it
-
     Stop-HostMaintenance -esxhost $esxhost
-
     Start-AutostartVMs -currentesxhost  $currentesxhost    
-
   }
 }
-end {
 
+end {
   # Log errors
   if ($Error) { 
     "[WARN] ERRORS FOUND DURING SCRIPT RUN" | Out-File $ErrorFile -Force
@@ -142,12 +129,9 @@ end {
   else { 
     "[INFO] NO ERRORS DURING SCRIPT RUN" | Out-File $ErrorFile 
   } 
-
   # Disconnect VI-server session
-  disconnect-viserver -confirm:$false
-
+  Disconnect-viserver -confirm:$false
   # End transcript logs
-  Stop-Transcript
-    
+  Stop-Transcript    
 }
 
