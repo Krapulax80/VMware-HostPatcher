@@ -84,7 +84,6 @@ process {
     Write-Host “Processing $currentesxhost”
     Write-Host “====================================================================”
     do {
-
       # Collect current host complieance status
       $hostStartingComplianceState = $null
       $hostStartingComplianceState = (get-compliance -entity $esxhost)
@@ -103,9 +102,9 @@ process {
         Start-HostMaintenance -esxhost $esxhost
       }
       # Update - phase 2 - Next, update all non-compliand baselines
-      Foreach ($hostbasecomp in $hostStartingComplianceState) {    
+      Foreach ($hostbasecomp in $hostStartingComplianceState) {
         If ($hostbasecomp.status -eq "Compliant") {
-          Write-Host "The host $esxhost is compliant for the "$hostbasecomp.Baseline.name" Baseline, skipping to next Baseline"    
+          Write-Host "The host $esxhost is compliant for the "$hostbasecomp.Baseline.name" Baseline, skipping to next Baseline"   
         }
         else {
           Update-HostBaseline -esxhost $esxhost -hostbasecomp $hostbasecomp
@@ -113,7 +112,7 @@ process {
       }
       # Repeat the above actions until all the compliance status is compliant
     } until ($hostStartingComplianceState.status -notcontains "NotCompliant")   
-    
+ 
     # Update - phase 3 - Finally, when all baselines has been made compliant, take the server out of maintenance and restart VM-s on it
     Stop-HostMaintenance -esxhost $esxhost
     Start-AutostartVMs -currentesxhost  $currentesxhost    
