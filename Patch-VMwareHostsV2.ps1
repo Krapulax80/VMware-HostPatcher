@@ -45,10 +45,10 @@ begin {
   # Define log files
   $date = Get-date -Format yyyy-MM-dd
   ## transcript
-  $logfile = $CurrentPath + "\" + "logs" + "\" + $date + "_actions.log"
+  $logfile = $CurrentPath + "\" + "logs" + "\" + $date + "_hostpatcher_actions.log"
   Start-Transcript $logfile -Force
   ## errors
-  $ErrorFile = $CurrentPath + "\" + "logs" + "\" + $date + "_error.log"
+  $ErrorFile = $CurrentPath + "\" + "logs" + "\" + $date + "_hostpatcher_error.log"
   $Error.clear()
   # Import various input files    
   ## configuration      
@@ -77,6 +77,7 @@ begin {
 }
 
 process {
+
   # Process each host in the $listofhosts
   Foreach ($esxhost in $listofhosts) {
     # Create host object
@@ -88,9 +89,10 @@ process {
       $hostStartingComplianceState = $null
       $hostStartingComplianceState = (get-compliance -entity $esxhost)
       # If there is non-compliand baselines, first shut down all the VM-s of the host
-      If ($hostStartingComplianceState.status -contains "NotCompliant") {     
+      If ($hostStartingComplianceState.status -contains "NotCompliant") {
+  
         # Update - phase 1 - Attempt to shut down all the VM-s on the host first. Either using VMware tools for a graceful shutdown, or hard shutdown
-        write-host "$esxhost has some remediation work to do, shutting down VMs and placing host into maintenance mode"
+        write-host -ForegroundColor Yellow "Host $esxhost has some remediation work to do, shutting down VMs and placing host into maintenance mode"
         $runningVMs = $null
         $runningVMs = ($currentesxhost | Get-VM | Where-Object { $_.PowerState -eq “PoweredOn” })
         Foreach ($vm in $runningVMs) {
@@ -100,23 +102,28 @@ process {
         Wait-AllVMsDown -esxhost $esxhost -currentesxhost $currentesxhost
         # Now that all VM-s are down, we put the host into maintenace mode
         Start-HostMaintenance -esxhost $esxhost
+      
+        # Update - phase 2 - Next, update all non-compliand baselines
+        Foreach ($hostbasecomp in $hostStartingComplianceState) {
+          If ($hostbasecomp.status -eq "Compliant") {
+            Write-Host "The host $esxhost is compliant for the "$hostbasecomp.Baseline.name" Baseline, skipping to next Baseline"   
+          }
+          else {
+            Update-HostBaseline -esxhost $esxhost -hostbasecomp $hostbasecomp
+          }
+        }
+
+        # Update - phase 3 - Finally, when all baselines has been made compliant, take the server out of maintenance and restart VM-s on it
+        Stop-HostMaintenance -esxhost $esxhost
+        Start-AutostartVMs -currentesxhost  $currentesxhost            
       }
-      # Update - phase 2 - Next, update all non-compliand baselines
-      Foreach ($hostbasecomp in $hostStartingComplianceState) {
-        If ($hostbasecomp.status -eq "Compliant") {
-          Write-Host "The host $esxhost is compliant for the "$hostbasecomp.Baseline.name" Baseline, skipping to next Baseline"   
-        }
-        else {
-          Update-HostBaseline -esxhost $esxhost -hostbasecomp $hostbasecomp
-        }
+      else {
+        Write-Host -ForegroundColor Green "Host $exhost is fully compliant, no need to update."
       }
       # Repeat the above actions until all the compliance status is compliant
     } until ($hostStartingComplianceState.status -notcontains "NotCompliant")   
- 
-    # Update - phase 3 - Finally, when all baselines has been made compliant, take the server out of maintenance and restart VM-s on it
-    Stop-HostMaintenance -esxhost $esxhost
-    Start-AutostartVMs -currentesxhost  $currentesxhost    
   }
+  
 }
 
 end {
@@ -126,11 +133,13 @@ end {
     $Error | Out-File $ErrorFile -Append 
   }
   else { 
-    "[INFO] NO ERRORS DURING SCRIPT RUN" | Out-File $ErrorFile 
+    "[INFO] NO ERRORS DURING SCRIPT RUN" | Out-File $ErrorFile -Force
   } 
   # Disconnect VI-server session
   Disconnect-viserver -confirm:$false
   # End transcript logs
   Stop-Transcript    
+  Write-Host -ForegroundColor Cyan "Please review $logfile for full details of actions."
+  Write-Host -ForegroundColor Cyan "Please review $ErrorFile for errors during script run"  
 }
 

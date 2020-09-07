@@ -5,6 +5,8 @@ function Start-HostMaintenance {
   )  
 
   Write-Host "Placing $esxhost into maintenance mode"
+
+  # Put host into maintenance
   Get-VMHost -Name $esxhost | set-vmhost -State Maintenance 
 
   $vmHostState = $null
@@ -17,6 +19,6 @@ function Start-HostMaintenance {
   } until ($vmHostState -match "Maintenance")
   Write-Host "... $esxhost is in maintenace, continuing" -ForegroundColor Green           
   # Giving the host extra 30 seconds to get to maintenance
-  Write-Host "Giving the host another 30 seconds to complete maintenance mode"
-  Start-sleep -seconds 30
+  # Write-Host "Giving the host another 30 seconds to complete maintenance mode"
+  # Start-sleep -seconds 30
 }

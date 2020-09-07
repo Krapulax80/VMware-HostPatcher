@@ -1,0 +1,5 @@
+*.txt
+Old Versions/*
+config/*
+logs/*
+*.log

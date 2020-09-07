@@ -17,6 +17,7 @@ function Start-AutostartVMs {
     }
     else {
       start-vm -VM $vmToPowerOn
+      $x = 1
       do {
         Write-Host "Waiting for $vmToPowerOn to power up and please wait ... [try: $x]" -ForegroundColor Yellow
         # Get the power state
@@ -24,6 +25,7 @@ function Start-AutostartVMs {
         $toolstate = (get-vm $vmToPowerOn).Guest.ExtensionData.ToolsRunningStatus
         $powerstate = (Get-Vm $vmToPowerOn).PowerState
         Start-Sleep -Seconds 5
+        $x++
       } until (($powerstate -eq "PoweredOn") -and ($toolstate -eq "guestToolsRunning"))
       write-host "$vmToPowerOn has now got VMware tools running, let's give it 30 seconds before continuing"
       start-sleep -Seconds 30
