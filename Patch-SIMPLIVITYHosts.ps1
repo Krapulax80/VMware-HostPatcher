@@ -12,7 +12,7 @@
     .OUTPUTS
 
     .NOTES
-      Version:        0.1
+      Version:        1.0
       Author:         Mike Ward & Fabrice Semti
       Creation Date:  26/08/2020
       Purpose/Change: Initial function development
@@ -74,146 +74,128 @@ begin {
 
     $OVCSkip = "False"
 
+    # Functions (script will uses these to execute the process)
+    $functions = (Get-ChildItem "$currentPath/functions").FullName
+    foreach ($f in $functions) {
+      Write-Host -ForegroundColor Cyan "Importing function $f"
+      if ($f -match ".ps1") {
+        . $f
+      }
+    }    
+
 
   }  
 }
       
 process {
         
-  Foreach ($clustername in $listofclusters) {
+  # Process each cluster in the list
+  Foreach ($clusterName in $listofclusters) {
 
-    if (  (!($clustername -match "ALWCLESX001")) -and (!($clustername -match "BNWCLESX001"))  ) {
+    # Process each cluster in the given list
+    Write-Host "Processing $clusterName"
+    Write-Host "===================================================================="    
+
+    # Turn OVC check off, if the cluster is not a Simplivity-one
+    if (  (!($clusterName -match "ALWCLESX001")) -and (!($clusterName -match "BNWCLESX001"))  ) {
       $OVCSkip = "True"
     }
 
-    # Let's check compliance for first host in cluster
-    write-host "Checking host: $currentclusterhost"
-    #Get list of hosts in specified cluster
-    $clusterhosts = get-cluster -name $clustername | Get-VMHost
-    $clusterhostcount = $clusterhosts.count
-    write-host "Number of hosts to be checked in the $clustername cluster is $clusterhostcount"
+    # Collect the compliance state of the cluster
+    $clusterComplianceState = (Get-compliance -entity (get-cluster $clusterName)).Status
 
-    # Loop through each host
-    Foreach ($currentclusterhost in $clusterhosts) {
+    if (!($clusterComplianceState -contains "NotCompliant")) {
 
-      $y = 1
-      do {
-        # Let's check compliance for first host in cluster
-        write-host "Checking host: $currentclusterhost - attempt: $y "
-        $clusterBaselineStatus = $null
-        $clusterBaselineStatus = (get-compliance -entity $currentclusterhost)
-        # Do remediation, if non-compliant host found
-        if ($clusterBaselineStatus -contains "NotCompliant") {
-          Write-Host "Host $currentclusterhost is not compliant in one or more baselines, I will remediate this host." -ForegroundColor Yellow
-
-          Foreach ($currentclusterhostcomp in $clusterBaselineStatus) {
-
-            #If host is compliant for a baseline let's output this
-            write-host "Checking baselines for compliance on $currentclusterhost."
-            If ($currentclusterhostcomp.status -eq "Compliant") {
-              Write-Host "$currentclusterhost is compliant for the "$currentclusterhostcomp.Baseline.Name" Baseline, continuing..."
-            }
-            #For baselines not compliant on the host let's start remediation
-            else {
-
-              Write-Host "$currentclusterhost is not compliant for the "$currentclusterhostcomp.Baseline.name" Baseline, starting remediation..."
-
-              #First we need to disable HA in the cluster
-              write-host "Disabling HA on the $clustername cluster, this will allow us to remediate the host"
-              set-cluster -cluster $clustername -HAEnabled:$false -Confirm:$false | out-null
-              write-host "HA has been disabled on the $clustername cluster. Continuing..."
-
-              if ($OVCSkip -eq "True") {
-                Write-Host -ForegroundColor DarkYellow "In non-simplivity mode, skipping OVC VM check"
-              }
-              else {
-                #Let's find and shut down the OVC safely from the current host
-                get-vmhost -Name $currentclusterhost.name | Get-VM | where-object { $_.Name -like "OmniStack*" } | Shutdown-VMGuest -Confirm:$false
-                Write-Host "Let's find and shut down the OVC safely from the current host"
-                #write-host "Waiting 2 minutes for OVC to cleanly shut down"
-                $vmState = $null
-                $x = 1
-                do {
-                  $vmState = (get-vmhost -Name $currentclusterhost.name | get-vm | where-object { $_.Name -like "OmniStack*" }).PowerState
-                  Write-Host "Waiting for OVC on $($currentclusterhost.name) to safely shutdown ... [try: $x]" -ForegroundColor Yellow
-                  Start-Sleep -Seconds 5
-                  $x++
-                } until ($vmState -notcontains "PoweredOn")
-                Write-Host "... OVC has been safely shut down on $($currentclusterhost.name). Continuing..." -ForegroundColor Green
-                # start-sleep -seconds 120
-              }
-
-
-              # Put the host into maintenance mode then wait 30 seconds
-              write-host "Placing $currentclusterhost into maintenance mode..."
-              Get-VMHost -Name $currentclusterhost | set-vmhost -State Maintenance | out-null
-
-              $clusterHostState = $null
-              $z = 1
-              do {
-                $clusterHostState = (Get-vmhost -name $currentclusterhost).ConnectionState
-                Write-Host "Waiting for $currentclusterhost going to maintenance, please wait ... [try: $z]" -ForegroundColor Yellow
-                Start-Sleep -Seconds 5
-                $z++
-              } until ($clusterHostState -match "Maintenance")
-              Write-Host "... $currentclusterhost is now in maintenace mode, continuing..." -ForegroundColor Green 
-
-              # Check baselines and update
-              write-host "Fetching all baseines for $currentclusterhost, then we will apply to the host any that are not complaint..."
-              # Start the stopwatch
-              $stopWatch = [system.diagnostics.stopwatch]::StartNew()
-              get-baseline -name $currentclusterhostcomp.baseline.name | update-entity -entity $currentclusterhost -confirm:$false
-              # Stop the stopwatch
-              $stopWatch.stop()
-              Write-Host -ForegroundColor Black -BackgroundColor Yellow "Baseline applied, $currentclusterhost took $($stopWatch.Elapsed.TotalMinutes) minutes to complete baseline updates." 
-
-              #Bring the host back online now it's remediated
-              write-host "Removing $currentclusterhost from Maintenance Mode"
-              Get-VMHost -Name $currentclusterhost | set-vmhost -State Connected | out-null
-
-              if ($OVCSkip -eq "True") {
-                Write-Host -ForegroundColor DarkYellow "In non-simplivity mode, skipping OVC VM check"                
-              }
-              else {
-                #Now let's power up the OVC for this host
-                write-host "Powering up the OVC for the host"
-                get-vmhost -Name $currentclusterhost.name | Get-VM | where-object { $_.Name -like "OmniStack*" } | Start-VM
-                $vmState = $null
-                $q = 1
-                do {
-                  $vmState = (get-vmhost -Name $currentclusterhost.name | get-vm | where-object { $_.Name -like "OmniStack*" }).PowerState
-                  Write-Host "Waiting for OVC on $($currentclusterhost.name) to power on... [try: $x]" -ForegroundColor Yellow
-                  Start-Sleep -Seconds 5
-                  $q++
-                } until ($vmState -notcontains "PoweredOff")
-                Write-Host "... OVC is now powered on $($currentclusterhost.name)." -ForegroundColor Green       
-                # Write-Host "Let's wait 5 minutes before starting the next host to give enough time for the OVC to boot up and sync cluster storage."
-                # start-sleep -seconds 300
-              }
-              write-host "$currentclusterhost has now been fully remediated"
-            }
-          }
-
-        }
-        else {
-          Write-Host "Host $currentclusterhost is fully compliant." -ForegroundColor Green
-        }
-
-        $y++
-        Start-Sleep -seconds 5
-
-      } until ($clusterBaselineStatus -notcontains "NotCompliant" )
-    }
-
-    write-host "Enabling HA on the $clustername cluster"
-    set-cluster -cluster $clustername -HAEnabled:$true -Confirm:$false
-    write-host "HA has now been enabled on the $clustername cluster"
-  }
+      # If the cluster compliance status does not contains "NotCompliant" entities, skip the rest of the work - as the cluster then compliant.
+      Write-Host "Cluster [$clusterName] is fully compliant, skipping remediation work." -ForegroundColor Green
         
+    }      
+    else {
+      # Else (if the status shows "NotCompliant") process all the hosts
+      Write-Host "Cluster [$clusterName] needs remediation work." -ForegroundColor Yellow
+
+      # First we disable High Availability in the cluster, as that would prevent our work.
+      Disable-HA -clustername $clusterName
+        
+      # Collect the list of cluster member hosts in the cluster
+      $clusterHosts = get-cluster -name $clusterName | Get-VMHost
+      Write-Host "Number of hosts in the $clusterName cluster:" -nonewline
+      Write-Host -ForegroundColor Magenta "$($clusterHosts.count)"
+
+      # Loop through each cluster member host
+      Foreach ($currentClusterHost in $clusterHosts) {
+
+        Write-Host "Processing $currentClusterHost"
+        Write-Host "====================================================================" 
+
+        # Repeat these steps, while there is "NotCompliant" updates on each host
+        do {
+            
+          # Gather current compliance state of the cluster member host
+          $hostComplianceState = $null
+          $hostComplianceState = (get-compliance -entity $currentClusterHost)
+          if (!($hostComplianceState.status -contains "NotCompliant")) {
+            # If the host status is compliant, only report this, no further work to be done.
+            Write-Host "Host [$currentClusterHost] is fully compliant, skipping remediation work." -ForegroundColor Green
+          } 
+          else {
+            # Else (if the status shows "NotCompliant") process this host
+            Write-Host "Host [$currentClusterHost] needs remediation work." -ForegroundColor Yellow   
+            # If the cluster is a Simplivity-one, we need to turn off the OVC VM-s first
+            if ($OVCSkip -eq "True") {
+              Write-Host "Non-Simplivity cluster - skipping OVC work" -ForegroundColor DarkGreen
+            }
+            else {
+              Write-Host "Simplivity cluster - shutting down OVC-VMs" -ForegroundColor DarkYellow
+              Stop-OVCVMs -currentclusterhost $currentClusterHost
+            } 
+                
+            # Now we put the host into maintenance
+            Start-ClusterHostMaintenance -currentclusterhost $currentClusterHost
+            # Loop trough each baselineof the host and update if needed
+            Foreach ($currentBaseline in $hostComplianceState) {
+
+              Write-Host "Processing $($currentBaseline.Baseline.Name)"
+              Write-Host "====================================================================" 
+
+              if (!($currentBaseline.Status -match "Notcompliant")) {
+                # If the baseline is compliant, reporting only
+                Write-Host "Baseline [$($currentBaseline.Baseline.Name)] is compliant, skipping remediation work." -ForegroundColor Black -BackGroundColor Green                
+              }
+              else {
+                # Else (if the baseline status shows "NotCompliant") process this host
+                Write-Host "Baseline [$($currentBaseline.Baseline.Name)] needs remediation work." -ForegroundColor Black -BackGroundColor Yellow  
+                # Update the non-compliant baselines on the  host
+                Update-ClusterHostBaseline -currentclusterhost $currentClusterHost -clusterBaselineStatus $hostComplianceState 
+              }
+            }
+
+            # Now the host should be updated, so we end the maintenance
+            Stop-ClusterHostMaintenance -currentclusterhost $currentClusterHost
+
+            # If the cluster is a Simplivity-one, we need to start the OVC VM-s back
+            if ($OVCSkip -eq "True") {
+              Write-Host "Non-Simplivity cluster - skipping OVC work" -ForegroundColor DarkGreen               
+            }
+            else {
+              Write-Host "Simplivity cluster - starting up OVC-VMs" -ForegroundColor DarkYellow
+              Start-OVCVMs -currentclusterhost $currentClusterHost
+              # Wait 10 min so OVC is safely back on
+              Write-host "Starting 10 min cooldown period to allow OVC to come online. Time for a cup of coffee!" -ForeGroundColor Magenta
+              Start-sleep -seconds 600
+            } 
+          }   
+        } while ($hostComplianceState.status -contains "NotCompliant") # because of this "while", we will repeat the above "do" block until the "while" is true (in other words, while we find any "noncompliant" baseline)
+      }
+      # Finally we turn back on High Availability
+      Enable-HA -clustername $clusterName
+    }
+    
+  }
+
 }
-      
+
 end {
-  disconnect-viserver -confirm:$false
   # Log errors
   if ($Error) { 
     "[WARN] ERRORS FOUND DURING SCRIPT RUN" | Out-File $ErrorFile -Force
@@ -229,8 +211,3 @@ end {
   Write-Host -ForegroundColor Cyan "Please review $logfile for full details of actions."
   Write-Host -ForegroundColor Cyan "Please review $ErrorFile for errors during script run"
 }
-#TODO: - add web timeout to 1 hour - OK
-#TODO: - Do statement until OVC has shut down instead of a 5 minute timer - OK
-#TODO: - Logic check on each sweep of baselines to check again (not rely on cached variable - OK
-#TODO: - Stopwatch - OK
-#TODO: - Transcript logging - OK
