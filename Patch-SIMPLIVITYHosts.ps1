@@ -12,7 +12,7 @@
     .OUTPUTS
 
     .NOTES
-      Version:        1.0
+      Version:        2.0
       Author:         Mike Ward & Fabrice Semti
       Creation Date:  26/08/2020
       Purpose/Change: Initial function development
@@ -81,8 +81,12 @@ begin {
       if ($f -match ".ps1") {
         . $f
       }
-    }    
-
+    }  
+    
+    # Vriables for emailing
+    $smtprelay = $config.SMTPRelay
+    $mailsender = $config.mailsender
+    $mailrecipients = @($config.mailrecipients)
 
   }  
 }
@@ -93,6 +97,7 @@ process {
   Foreach ($clusterName in $listofclusters) {
 
     # Process each cluster in the given list
+    Write-Host #lazy line break for readability
     Write-Host "Processing $clusterName"
     Write-Host "===================================================================="    
 
@@ -101,10 +106,10 @@ process {
       $OVCSkip = "True"
     }
 
-    # Collect the compliance state of the cluster
-    $clusterComplianceState = (Get-compliance -entity (get-cluster $clusterName)).Status
+    # Collect the compliance state of the cluster at the work start
+    $startingClusterComplianceState = Get-compliance -entity (get-cluster $clusterName)
 
-    if (!($clusterComplianceState -contains "NotCompliant")) {
+    if (!($startingClusterComplianceState.Status -contains "NotCompliant")) {
 
       # If the cluster compliance status does not contains "NotCompliant" entities, skip the rest of the work - as the cluster then compliant.
       Write-Host "Cluster [$clusterName] is fully compliant, skipping remediation work." -ForegroundColor Green
@@ -119,13 +124,15 @@ process {
         
       # Collect the list of cluster member hosts in the cluster
       $clusterHosts = get-cluster -name $clusterName | Get-VMHost
-      Write-Host "Number of hosts in the $clusterName cluster:" -nonewline
+      Write-Host "Number of hosts in the $clusterName cluster: " -nonewline
       Write-Host -ForegroundColor Magenta "$($clusterHosts.count)"
+      $clusterhostnumber = 0
 
       # Loop through each cluster member host
       Foreach ($currentClusterHost in $clusterHosts) {
-
-        Write-Host "Processing $currentClusterHost"
+        $clusterhostnumber++
+        Write-Host #lazy line break for readability
+        Write-Host "Processing $currentClusterHost -  [Host $clusterhostnumber out of $($clusterHosts.count) hosts] "
         Write-Host "====================================================================" 
 
         # Repeat these steps, while there is "NotCompliant" updates on each host
@@ -152,9 +159,9 @@ process {
                 
             # Now we put the host into maintenance
             Start-ClusterHostMaintenance -currentclusterhost $currentClusterHost
-            # Loop trough each baselineof the host and update if needed
+            # Loop trough each baseline of the host and update which needs update
             Foreach ($currentBaseline in $hostComplianceState) {
-
+              Write-Host #lazy line break for readability
               Write-Host "Processing $($currentBaseline.Baseline.Name)"
               Write-Host "====================================================================" 
 
@@ -166,7 +173,7 @@ process {
                 # Else (if the baseline status shows "NotCompliant") process this host
                 Write-Host "Baseline [$($currentBaseline.Baseline.Name)] needs remediation work." -ForegroundColor Black -BackGroundColor Yellow  
                 # Update the non-compliant baselines on the  host
-                Update-ClusterHostBaseline -currentclusterhost $currentClusterHost -clusterBaselineStatus $hostComplianceState 
+                Update-ClusterHostBaseline -currentclusterhost $currentClusterHost -hostComplianceState $hostComplianceState 
               }
             }
 
@@ -187,9 +194,22 @@ process {
           }   
         } while ($hostComplianceState.status -contains "NotCompliant") # because of this "while", we will repeat the above "do" block until the "while" is true (in other words, while we find any "noncompliant" baseline)
       }
+
       # Finally we turn back on High Availability
       Enable-HA -clustername $clusterName
     }
+
+    # Collect the compliance state of the cluster at the work start
+    $endingClusterComplianceState = Get-compliance -entity (get-cluster $clusterName)    
+
+    # Finally send report
+    if ($startingClusterComplianceState.Status -eq $endingClusterComplianceState.Status ) {
+      Write-Host "Compliance level of cluster [$clusterName] did not change. Report not sent." -ForegroundColor Yellow
+    }
+    else {
+      Write-Host "Sending report on pre- and post-patching compliance status." -ForegroundColor Green
+      Send-ClusterStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingClusterComplianceState $startingClusterComplianceState -endingClusterComplianceState $endingClusterComplianceState
+    }    
     
   }
 

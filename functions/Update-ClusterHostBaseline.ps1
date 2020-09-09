@@ -6,13 +6,22 @@ function Update-ClusterHostBaseline {
     )  
     begin {
         write-host "Updating [$($currentBaseline.baseline.name)] on [$($currentClusterHost.Name)] "
+        $stopWatch = [system.diagnostics.stopwatch]::StartNew()  
     }
-    process {
-        $stopWatch = [system.diagnostics.stopwatch]::StartNew()        
-        Get-baseline -name $currentBaseline.baseline.name | update-entity -entity $currentClusterHost -confirm:$false
-        $stopWatch.stop()
+    process {   
+        
+        try {
+            #Remediate-Inventory -Baseline $currentBaseline.baseline -Entity $currentClusterHost -HostDisableMediaDevices:$true -Confirm:$false          
+            Get-baseline -name $currentBaseline.baseline.name | update-entity -entity $currentClusterHost -confirm:$false
+        }
+        catch {
+            Write-Host "We found an error" -ForegroundColor Red
+            Write-Host "$_.Exception.Message"  -ForegroundColor Red
+        }
+
     }
     end {
+        $stopWatch.stop()
         Write-Host "Baseline applied on [$($currentClusterHost.Name)] took [$($stopWatch.Elapsed.TotalMinutes)] minutes to complete this baseline update." 
     }
 }

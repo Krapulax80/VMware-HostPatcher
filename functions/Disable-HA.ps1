@@ -10,6 +10,6 @@ function Disable-HA {
         Set-Cluster -cluster $clusterName -HAEnabled:$false -Confirm:$false | out-null
     }
     end {
-        Write-Host " HA has been disabled on the [$clusterName] cluster."         
+        Write-Host "HA has been disabled on the [$clusterName] cluster."         
     }
 }

@@ -11,17 +11,18 @@ function Start-ClusterHostMaintenance {
     }
     
     process {
-        $clusterHoststate = $null
-        $z = 1
+        $x = 1
         do {
+            $clusterHoststate = $null            
             $clusterHoststate = (Get-vmhost -name $currentClusterHost).ConnectionState
-            Write-Host "Waiting for $currentClusterHost going to maintenance, please wait ... [try: $z]" -ForegroundColor Yellow
+            Write-Host "Waiting for $currentClusterHost going to maintenance, please wait [try: $x]"
             Start-Sleep -Seconds 5
-            $z++
+            Write-Host " Host [$currentClusterHost] state is [$clusterHoststate]"
+            $x++
         } until ($clusterHoststate -match "Maintenance")
     }
     
     end {
-        Write-Host "... $currentClusterHost is now in maintenace mode, continuing..." -ForegroundColor Green 
+        Write-Host "... $currentClusterHost is now in maintenace mode, continuing"
     }
 }
