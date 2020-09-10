@@ -57,7 +57,7 @@ begin {
   # Connect to the VI server
   connect-viserver $config.VIserver
   # Set WebOperationTimeout to 1 hour to stop the script timing out and erroring
-  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -Confirm:$false  
+  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -invalidCertificateAction "ignore" -Confirm:$false | out-null
   # Cluster list
   if ($Live) {
     $listofclusters = (get-cluster).Name # cluster names to work with
@@ -73,10 +73,13 @@ begin {
         . $f
       }
     }   
-    # Vriables for emailing
+    # Variables for emailing
     $smtprelay = $config.SMTPRelay
     $mailsender = $config.mailsender
     $mailrecipients = Import-csv "$currentPath/config/recipients.csv"
+
+    #Time counter
+    $totalTime = $null
   }  
 }
       
@@ -153,7 +156,7 @@ process {
                 # Else (if the baseline status shows "NotCompliant") process this host
                 Write-Host "Baseline [$($currentBaseline.Baseline.Name)] needs remediation work." -ForegroundColor Black -BackGroundColor Yellow  
                 # Update the non-compliant baselines on the  host
-                Update-ClusterHostBaseline -currentclusterhost $currentClusterHost -hostComplianceState $hostComplianceState 
+                Update-ClusterHostBaseline -currentclusterhost $currentClusterHost -hostComplianceState $hostComplianceState -totalTime $totalTime
               }
             }
             # Now the host should be updated, so we end the maintenance
@@ -185,7 +188,7 @@ process {
     }
     else {
       Write-Host "Sending report on pre- and post-patching compliance status." -ForegroundColor Green
-      Send-ClusterStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingClusterComplianceState $startingClusterComplianceState -endingClusterComplianceState $endingClusterComplianceState
+      Send-ClusterStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingClusterComplianceState $startingClusterComplianceState -endingClusterComplianceState $endingClusterComplianceState -totalTime $totalTime
     }      
   }
 }

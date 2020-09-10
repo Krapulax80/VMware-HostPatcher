@@ -58,7 +58,7 @@ begin {
   # Connect to the VI server
   connect-viserver $config.VIserver
   # Set WebOperationTimeout to 1 hour to stop the script timing out and erroring
-  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -Confirm:$false
+  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -invalidCertificateAction "ignore" -Confirm:$false | out-null
   # Define host list for Live (all available hosts not in the clustered datacenters) or test runs
   if ($Live) {
     $listofhosts = (get-datacenter | Where-Object { ($_.Name -ne "BNW") -and ($_.Name -ne "ALW") }  | Get-VMHost).Name  # the filter is to exclude the clusterized hosts; this is for standalone hosts only
@@ -73,7 +73,15 @@ begin {
     if ($f -match ".ps1") {
       . $f
     }
+    # Variables for emailing
+    $smtprelay = $config.SMTPRelay
+    $mailsender = $config.mailsender
+    $mailrecipients = Import-csv "$currentPath/config/recipients.csv"    
   }
+  $startingHostStateSummary = $null
+  $endingHostStateSummary = $null
+  $startingHostStateSummary = @()
+  $endingHostStateSummary =  @()
 }
 
 process {
@@ -85,9 +93,10 @@ process {
     Write-Host “Processing $currentesxhost”
     Write-Host “====================================================================”
     do {
-      # Collect current host complieance status
+      # Collect starting host complieance status
       $hostStartingComplianceState = $null
       $hostStartingComplianceState = (get-compliance -entity $esxhost)
+      $startingHostStateSummary += $hostStartingComplianceState
       # If there is non-compliand baselines, first shut down all the VM-s of the host
       If ($hostStartingComplianceState.status -contains "NotCompliant") {
   
@@ -121,9 +130,19 @@ process {
         Write-Host -ForegroundColor Green "Host $exhost is fully compliant, no need to update."
       }
       # Repeat the above actions until all the compliance status is compliant
-    } until ($hostStartingComplianceState.status -notcontains "NotCompliant")   
+    } until ($hostStartingComplianceState.status -notcontains "NotCompliant")
+    $hostEndingComplianceState = $null
+    $hostEndingComplianceState = (get-compliance -entity $esxhost)
+    $endingHostStateSummary += $hostEndingComplianceState 
   }
-  
+      # Finally send report
+      if ($startingHostStateSummary -match $endingHostStateSummary ) {
+        Write-Host "Compliance level of the standalone hosts did not change. Report not sent." -ForegroundColor Yellow
+      }
+      else {
+        Write-Host "Sending report on pre- and post-patching compliance status." -ForegroundColor Green
+        Send-StandaloneHostsStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingHostStateSummary $startingHostStateSummary -endingHostStateSummary $endingHostStateSummary
+      }   
 }
 
 end {

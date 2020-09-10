@@ -1,12 +1,11 @@
-function Send-ClusterStateReport {
+function Send-StandaloneHostsStateReport {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]$smtprelay,
         [Parameter(Mandatory)]$mailsender, 
         [Parameter(Mandatory)]$mailrecipients,
-        [Parameter(Mandatory)]$startingClusterComplianceState, 
-        [Parameter(Mandatory)]$endingClusterComplianceState,
-        [Parameter(Mandatory = $false)] $totalTime
+        [Parameter(Mandatory)]$startingHostStateSummary, 
+        [Parameter(Mandatory)]$endingHostStateSummary
     ) 
     
     begin {
@@ -28,7 +27,7 @@ function Send-ClusterStateReport {
         "
         <font face= ""Century Gothic"">
         Hello,
-        <p> Please find cluster patching reports below:  <br>
+        <p> Please find standalone hosts patching reports below:  <br>
         "
 
         # Report of state before the patching #############################################################################################################################################################
@@ -42,7 +41,7 @@ function Send-ClusterStateReport {
         <ul style=""list-style-type:disc"">
         "
         
-        foreach ($row in $startingClusterComplianceState) {
+        foreach ($row in $startingHostStateSummary) {
             if ($row.Status -eq "NotCompliant") {
                 $EmailBody += 
                 "
@@ -84,7 +83,6 @@ function Send-ClusterStateReport {
         $EmailBody += 
         "
         <h1> <span style=`"color:blue`">" + " Post-Patch report:  " + "</span> </h1> <br>
-        <h2> Total patching time was: $($totalTime) minutes </h2> <br>
         "
 
         $EmailBody += 
@@ -92,7 +90,7 @@ function Send-ClusterStateReport {
         <ul style=""list-style-type:disc"">
         "
         
-        foreach ($row in $endingClusterComplianceState) {
+        foreach ($row in $endingHostStateSummary) {
             if ($row.Status -eq "NotCompliant") {
                 $EmailBody += 
                 "

@@ -15,7 +15,7 @@ function Stop-OVCVMs {
             $vmState = $null 
             $vmState = (get-vmhost -Name $currentClusterHost.name | get-vm | where-object { $_.Name -like "OmniStack*" }).PowerState
             Write-Host "Waiting for OVC VM on host  $($currentClusterHost.name) to safely shutdown... [check: $x]"
-            Start-Sleep -Seconds 5
+            Start-Sleep -Seconds 60
             $x++
         } until ($vmState -notcontains "PoweredOn")
     }

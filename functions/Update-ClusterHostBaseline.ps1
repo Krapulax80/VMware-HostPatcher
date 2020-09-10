@@ -1,8 +1,9 @@
 function Update-ClusterHostBaseline {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory)]$currentClusterHost,
-        [Parameter(Mandatory)]$hostComplianceState
+        [Parameter(Mandatory)] $currentClusterHost,
+        [Parameter(Mandatory)] $hostComplianceState,
+        [Parameter(Mandatory = $false)] $totalTime
     )  
     begin {
         write-host "Updating [$($currentBaseline.baseline.name)] on [$($currentClusterHost.Name)] "
@@ -23,5 +24,8 @@ function Update-ClusterHostBaseline {
     end {
         $stopWatch.stop()
         Write-Host "Baseline applied on [$($currentClusterHost.Name)] took [$($stopWatch.Elapsed.TotalMinutes)] minutes to complete this baseline update." 
+        if ($totalTime.ispresent) {
+            $totalTime += $stopWatch.Elapsed.TotalMinutes
+        }
     }
 }

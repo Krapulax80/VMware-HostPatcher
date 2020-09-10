@@ -1,5 +1,7 @@
+*.csv
 *.txt
-Old Versions/*
-config/*
-logs/*
 *.log
+old*
+log*
+.history*
+

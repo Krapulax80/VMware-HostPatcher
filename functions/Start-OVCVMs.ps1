@@ -13,7 +13,7 @@ function Start-OVCVMs {
       $vmState = $null
       $vmState = (get-vmhost -Name $currentClusterHost.name | get-vm | where-object { $_.Name -like "OmniStack*" }).PowerState
       Write-Host "Waiting for OVC on $($currentClusterHost.name) to power on... [check: $x]"
-      Start-Sleep -Seconds 5
+      Start-Sleep -Seconds 60
       $x++
     } until ($vmState -notcontains "PoweredOff")     
   }   
