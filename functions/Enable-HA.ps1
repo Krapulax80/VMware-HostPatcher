@@ -8,7 +8,7 @@ function Enable-HA {
     }
     
     process {    
-        Set-Cluster -cluster $clusterName -HAEnabled:$true -Confirm:$false
+        Set-Cluster -cluster $clusterName -HAEnabled:$true -Confirm:$false | out-null
     }
     
     end {

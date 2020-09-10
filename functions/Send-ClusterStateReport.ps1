@@ -90,7 +90,7 @@ function Send-ClusterStateReport {
         <ul style=""list-style-type:disc"">
         "
         
-        foreach ($row in $startingClusterComplianceState) {
+        foreach ($row in $endingClusterComplianceState) {
             if ($row.Status -eq "NotCompliant") {
                 $EmailBody += 
                 "
@@ -137,8 +137,8 @@ function Send-ClusterStateReport {
             </font>
             "
 
-        foreach ($R in $ReportRecipients) {
-            Send-Mailmessage -smtpServer $SmtpServer -from $ReportSender -to $R -subject $EmailSubject -body $EmailBody -bodyasHTML -priority High -Encoding $TextEncoding
+        foreach ($recipient in $ReportRecipients) {
+            Send-Mailmessage -smtpServer $SmtpServer -from $ReportSender -to $recipient -subject $EmailSubject -body $EmailBody -bodyasHTML -priority High -Encoding $TextEncoding
         }
         
     }

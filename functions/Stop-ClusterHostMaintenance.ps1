@@ -4,6 +4,7 @@ function Stop-ClusterHostMaintenance {
         [Parameter(Mandatory)]$currentClusterHost
     )  
     begin {
+        Write-Host #lazy line break
         write-host "Taking out host [$currentClusterHost] from maintenance mode..."
     }    
     process {

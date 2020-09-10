@@ -12,7 +12,7 @@
     .OUTPUTS
 
     .NOTES
-      Version:        2.0
+      Version:        3.0
       Author:         Mike Ward & Fabrice Semti
       Creation Date:  26/08/2020
       Purpose/Change: Initial function development
@@ -37,12 +37,9 @@ param (
 )
       
 begin {
-  
-  $ErrorActionPreference = "Stop"
-          
+  $ErrorActionPreference = "Stop"         
   $CurrentPath = $config = $null
   $CurrentPath = Split-Path -Parent $PSCommandPath
-
   # Define log files
   $date = Get-date -Format yyyy-MM-dd
   ## transcript
@@ -50,17 +47,13 @@ begin {
   Start-Transcript $logfile -Force
   ## errors
   $ErrorFile = $CurrentPath + "\" + "logs" + "\" + $date + "_clusterpatcher_error.log"
-  $Error.clear()  
-  
+  $Error.clear()
   # Import config file        
   $config = Import-Csv "$currentPath/config/config.csv"
-  
   #   # List of hosts
   #   $listofhosts = Get-Content  "$currentPath/config/hostlist.txt"
-  
   #   # List of VM-s to leave online
-  #   $listofhosts = Get-Content  "$currentPath/config/VMexceptions.txt"   
-          
+  #   $listofhosts = Get-Content  "$currentPath/config/VMexceptions.txt"          
   # Connect to the VI server
   connect-viserver $config.VIserver
   # Set WebOperationTimeout to 1 hour to stop the script timing out and erroring
@@ -71,9 +64,7 @@ begin {
   }
   else {
     $listofclusters = Get-Content "$currentPath/config/clusterlist.txt" 
-
     $OVCSkip = "False"
-
     # Functions (script will uses these to execute the process)
     $functions = (Get-ChildItem "$currentPath/functions").FullName
     foreach ($f in $functions) {
@@ -81,36 +72,29 @@ begin {
       if ($f -match ".ps1") {
         . $f
       }
-    }  
-    
+    }   
     # Vriables for emailing
     $smtprelay = $config.SMTPRelay
     $mailsender = $config.mailsender
-    $mailrecipients = @($config.mailrecipients)
-
+    $mailrecipients = Import-csv "$currentPath/config/recipients.csv"
   }  
 }
       
-process {
-        
+process {       
   # Process each cluster in the list
   Foreach ($clusterName in $listofclusters) {
-
     # Process each cluster in the given list
     Write-Host #lazy line break for readability
     Write-Host "Processing $clusterName"
     Write-Host "===================================================================="    
-
     # Turn OVC check off, if the cluster is not a Simplivity-one
     if (  (!($clusterName -match "ALWCLESX001")) -and (!($clusterName -match "BNWCLESX001"))  ) {
       $OVCSkip = "True"
     }
-
     # Collect the compliance state of the cluster at the work start
-    $startingClusterComplianceState = Get-compliance -entity (get-cluster $clusterName)
-
+    $startingClusterComplianceState = $null
+    $startingClusterComplianceState = Get-compliance -entity (get-cluster $clusterName) | Where-Object { ($_.Baseline.Name -notlike "*VMware Tools Upgrade to Match Host (Predefined)*") -and ($_.Baseline.Name -notlike "*VM Hardware Upgrade to Match Host (Predefined)*") }
     if (!($startingClusterComplianceState.Status -contains "NotCompliant")) {
-
       # If the cluster compliance status does not contains "NotCompliant" entities, skip the rest of the work - as the cluster then compliant.
       Write-Host "Cluster [$clusterName] is fully compliant, skipping remediation work." -ForegroundColor Green
         
@@ -118,7 +102,6 @@ process {
     else {
       # Else (if the status shows "NotCompliant") process all the hosts
       Write-Host "Cluster [$clusterName] needs remediation work." -ForegroundColor Yellow
-
       # First we disable High Availability in the cluster, as that would prevent our work.
       Disable-HA -clustername $clusterName
         
@@ -127,14 +110,12 @@ process {
       Write-Host "Number of hosts in the $clusterName cluster: " -nonewline
       Write-Host -ForegroundColor Magenta "$($clusterHosts.count)"
       $clusterhostnumber = 0
-
       # Loop through each cluster member host
       Foreach ($currentClusterHost in $clusterHosts) {
         $clusterhostnumber++
         Write-Host #lazy line break for readability
         Write-Host "Processing $currentClusterHost -  [Host $clusterhostnumber out of $($clusterHosts.count) hosts] "
         Write-Host "====================================================================" 
-
         # Repeat these steps, while there is "NotCompliant" updates on each host
         do {
             
@@ -164,7 +145,6 @@ process {
               Write-Host #lazy line break for readability
               Write-Host "Processing $($currentBaseline.Baseline.Name)"
               Write-Host "====================================================================" 
-
               if (!($currentBaseline.Status -match "Notcompliant")) {
                 # If the baseline is compliant, reporting only
                 Write-Host "Baseline [$($currentBaseline.Baseline.Name)] is compliant, skipping remediation work." -ForegroundColor Black -BackGroundColor Green                
@@ -176,10 +156,8 @@ process {
                 Update-ClusterHostBaseline -currentclusterhost $currentClusterHost -hostComplianceState $hostComplianceState 
               }
             }
-
             # Now the host should be updated, so we end the maintenance
             Stop-ClusterHostMaintenance -currentclusterhost $currentClusterHost
-
             # If the cluster is a Simplivity-one, we need to start the OVC VM-s back
             if ($OVCSkip -eq "True") {
               Write-Host "Non-Simplivity cluster - skipping OVC work" -ForegroundColor DarkGreen               
@@ -194,25 +172,22 @@ process {
           }   
         } while ($hostComplianceState.status -contains "NotCompliant") # because of this "while", we will repeat the above "do" block until the "while" is true (in other words, while we find any "noncompliant" baseline)
       }
-
       # Finally we turn back on High Availability
       Enable-HA -clustername $clusterName
     }
-
     # Collect the compliance state of the cluster at the work start
-    $endingClusterComplianceState = Get-compliance -entity (get-cluster $clusterName)    
-
+    Start-Sleep -seconds 60 # short break to allow compliance 
+    $endingClusterComplianceState = $null
+    $endingClusterComplianceState = Get-compliance -entity (get-cluster $clusterName) | Where-Object { ($_.Baseline.Name -notlike "*VMware Tools Upgrade to Match Host (Predefined)*") -and ($_.Baseline.Name -notlike "*VM Hardware Upgrade to Match Host (Predefined)*") }  
     # Finally send report
-    if ($startingClusterComplianceState.Status -eq $endingClusterComplianceState.Status ) {
+    if ($startingClusterComplianceState -match $endingClusterComplianceState ) {
       Write-Host "Compliance level of cluster [$clusterName] did not change. Report not sent." -ForegroundColor Yellow
     }
     else {
       Write-Host "Sending report on pre- and post-patching compliance status." -ForegroundColor Green
       Send-ClusterStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingClusterComplianceState $startingClusterComplianceState -endingClusterComplianceState $endingClusterComplianceState
-    }    
-    
+    }      
   }
-
 }
 
 end {

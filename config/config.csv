@@ -1,2 +1,2 @@
-VIServer,SMTPRelay,mailsender,mailrecipients
-bnwvcsa01.westcoast.co.uk,smtprelay.westcoast.co.uk,no_reply@westcoast.co.uk,"'fabrice.semti@westcoast.co.uk','mike.ward@westcoast.co.uk'"
+VIServer,SMTPRelay,mailsender
+bnwvcsa01.westcoast.co.uk,smtprelay.westcoast.co.uk,no_reply@westcoast.co.uk
