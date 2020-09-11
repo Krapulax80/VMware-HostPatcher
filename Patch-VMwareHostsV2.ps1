@@ -56,9 +56,10 @@ begin {
   ## excetpions (VM-s to leave powered on)
   $vmstoleave = Get-Content "$currentPath/config/VMexceptions.txt"  
   # Connect to the VI server
-  connect-viserver $config.VIserver
+  get-module *vmware* | Import-Module -Force
   # Set WebOperationTimeout to 1 hour to stop the script timing out and erroring
-  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -invalidCertificateAction "ignore" -Confirm:$false | out-null
+  Connect-viserver $config.VIserver
+  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -Confirm:$false | out-null
   # Define host list for Live (all available hosts not in the clustered datacenters) or test runs
   if ($Live) {
     $listofhosts = (get-datacenter | Where-Object { ($_.Name -ne "BNW") -and ($_.Name -ne "ALW") }  | Get-VMHost).Name  # the filter is to exclude the clusterized hosts; this is for standalone hosts only
@@ -81,7 +82,7 @@ begin {
   $startingHostStateSummary = $null
   $endingHostStateSummary = $null
   $startingHostStateSummary = @()
-  $endingHostStateSummary =  @()
+  $endingHostStateSummary = @()
 }
 
 process {
@@ -135,14 +136,14 @@ process {
     $hostEndingComplianceState = (get-compliance -entity $esxhost)
     $endingHostStateSummary += $hostEndingComplianceState 
   }
-      # Finally send report
-      if ($startingHostStateSummary -match $endingHostStateSummary ) {
-        Write-Host "Compliance level of the standalone hosts did not change. Report not sent." -ForegroundColor Yellow
-      }
-      else {
-        Write-Host "Sending report on pre- and post-patching compliance status." -ForegroundColor Green
-        Send-StandaloneHostsStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingHostStateSummary $startingHostStateSummary -endingHostStateSummary $endingHostStateSummary
-      }   
+  # Finally send report
+  if ($startingHostStateSummary -match $endingHostStateSummary ) {
+    Write-Host "Compliance level of the standalone hosts did not change. Report not sent." -ForegroundColor Yellow
+  }
+  else {
+    Write-Host "Sending report on pre- and post-patching compliance status." -ForegroundColor Green
+    Send-StandaloneHostsStateReport -smtprelay $smtprelay -mailsender $mailsender -mailrecipients $mailrecipients -startingHostStateSummary $startingHostStateSummary -endingHostStateSummary $endingHostStateSummary
+  }   
 }
 
 end {

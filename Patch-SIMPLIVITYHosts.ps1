@@ -55,9 +55,10 @@ begin {
   #   # List of VM-s to leave online
   #   $listofhosts = Get-Content  "$currentPath/config/VMexceptions.txt"          
   # Connect to the VI server
+  get-module *vmware* | Import-Module -Force
   connect-viserver $config.VIserver
   # Set WebOperationTimeout to 1 hour to stop the script timing out and erroring
-  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -invalidCertificateAction "ignore" -Confirm:$false | out-null
+  Set-PowerCLIConfiguration -scope Session -WebOperationTimeoutSeconds 3600 -Confirm:$false | out-null
   # Cluster list
   if ($Live) {
     $listofclusters = (get-cluster).Name # cluster names to work with

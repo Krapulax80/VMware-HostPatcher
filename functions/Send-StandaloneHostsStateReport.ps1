@@ -11,9 +11,6 @@ function Send-StandaloneHostsStateReport {
     begin {
         
         # Email parameters
-        $SmtpServer = $smtprelay
-        $ReportSender = $mailsender
-
         $TextEncoding = [System.Text.Encoding]::UTF8
         $timer = (Get-Date -Format yyy-MM-dd-HH:mm)
         $EmailSubject = "Cluster host patching report - [$timer]"  
@@ -46,9 +43,9 @@ function Send-StandaloneHostsStateReport {
                 $EmailBody += 
                 "
                 <li>
-                <p> Entity name (host): <span style=`"color:red`">" + " $($row.Entity) " + "</span> <br> 
-                <p> Baseline name     : <span style=`"color:red`">" + " $($row.Baseline.Name) " + "</span> <br>
-                <p> Baseline status   : <span style=`"color:red`">" + " $($row.Status) " + "</span> <br>
+                <p> Entity name (host): <span style=`"color:red`">" + " $($row.Entity) " + "</span> &nbsp;
+                Baseline name     : <span style=`"color:red`">" + " $($row.Baseline.Name) " + "</span> &nbsp;
+                Baseline status   : <span style=`"color:red`">" + " $($row.Status) " + "</span> <br>
                 </li>
                 "
             }
@@ -56,9 +53,9 @@ function Send-StandaloneHostsStateReport {
                 $EmailBody += 
                 "
                 <li>
-                <p> Entity name (host): <span style=`"color:green`">" + " $($row.Entity) " + "</span> <br> 
-                <p> Baseline name     : <span style=`"color:green`">" + " $($row.Baseline.Name) " + "</span> <br>
-                <p> Baseline status   : <span style=`"color:green`">" + " $($row.Status) " + "</span> <br>
+                <p> Entity name (host): <span style=`"color:green`">" + " $($row.Entity) " + "</span> &nbsp;
+                Baseline name     : <span style=`"color:green`">" + " $($row.Baseline.Name) " + "</span> &nbsp;
+                Baseline status   : <span style=`"color:green`">" + " $($row.Status) " + "</span> <br>
                 </li>
                 "                              
             }
@@ -66,9 +63,9 @@ function Send-StandaloneHostsStateReport {
                 $EmailBody += 
                 "
                 <li>
-                <p> Entity name (host): <span style=`"color:yellow`">" + " $($row.Entity) " + "</span> <br> 
-                <p> Baseline name     : <span style=`"color:yellow`">" + " $($row.Baseline.Name) " + "</span> <br>
-                <p> Baseline status   : <span style=`"color:yellow`">" + " $($row.Status) " + "</span> <br> 
+                <p> Entity name (host): <span style=`"color:yellow`">" + " $($row.Entity) " + "</span> &nbsp;
+                Baseline name     : <span style=`"color:yellow`">" + " $($row.Baseline.Name) " + "</span> &nbsp;
+                Baseline status   : <span style=`"color:yellow`">" + " $($row.Status) " + "</span> <br> 
                 </li>
                 "                 
             }
@@ -95,9 +92,9 @@ function Send-StandaloneHostsStateReport {
                 $EmailBody += 
                 "
                 <li>
-                <p> Entity name (host): <span style=`"color:red`">" + " $($row.Entity) " + "</span> <br> 
-                <p> Baseline name     : <span style=`"color:red`">" + " $($row.Baseline.Name) " + "</span> <br>
-                <p> Baseline status   : <span style=`"color:red`">" + " $($row.Status) " + "</span> <br>
+                <p> Entity name (host): <span style=`"color:red`">" + " $($row.Entity) " + "</span> &nbsp;
+                Baseline name     : <span style=`"color:red`">" + " $($row.Baseline.Name) " + "</span> &nbsp;
+                Baseline status   : <span style=`"color:red`">" + " $($row.Status) " + "</span> <br>
                 </li>
                 "
             }
@@ -105,9 +102,9 @@ function Send-StandaloneHostsStateReport {
                 $EmailBody += 
                 "
                 <li>
-                <p> Entity name (host): <span style=`"color:green`">" + " $($row.Entity) " + "</span> <br> 
-                <p> Baseline name     : <span style=`"color:green`">" + " $($row.Baseline.Name) " + "</span> <br>
-                <p> Baseline status   : <span style=`"color:green`">" + " $($row.Status) " + "</span> <br>
+                <p> Entity name (host): <span style=`"color:green`">" + " $($row.Entity) " + "</span> &nbsp;
+                Baseline name     : <span style=`"color:green`">" + " $($row.Baseline.Name) " + "</span> &nbsp;
+                Baseline status   : <span style=`"color:green`">" + " $($row.Status) " + "</span> <br>
                 </li>
                 "                              
             }
@@ -115,9 +112,9 @@ function Send-StandaloneHostsStateReport {
                 $EmailBody += 
                 "
                 <li>
-                <p> Entity name (host): <span style=`"color:yellow`">" + " $($row.Entity) " + "</span> <br> 
-                <p> Baseline name     : <span style=`"color:yellow`">" + " $($row.Baseline.Name) " + "</span> <br>
-                <p> Baseline status   : <span style=`"color:yellow`">" + " $($row.Status) " + "</span> <br> 
+                <p> Entity name (host): <span style=`"color:yellow`">" + " $($row.Entity) " + "</span> &nbsp;
+                Baseline name     : <span style=`"color:yellow`">" + " $($row.Baseline.Name) " + "</span> &nbsp;
+                Baseline status   : <span style=`"color:yellow`">" + " $($row.Status) " + "</span> <br> 
                 </li>
                 "                 
             }
@@ -138,9 +135,9 @@ function Send-StandaloneHostsStateReport {
             "
 
         foreach ($recipient in $ReportRecipients) {
-            Send-Mailmessage -smtpServer $SmtpServer -from $ReportSender -to $recipient -subject $EmailSubject -body $EmailBody -bodyasHTML -priority High -Encoding $TextEncoding -ErrorAction Continue
+            Send-Mailmessage -smtpServer $smtprelay -from $mailsender -to $($recipient.recipient) -subject $EmailSubject -body $EmailBody -bodyasHTML -priority High -Encoding $TextEncoding -ErrorAction Continue
         }
-        
+        #Send-Mailmessage -smtpServer $smtprelay -from $mailsender -to "GroupInfrastructure@westcoast.co.uk" -subject $EmailSubject -body $EmailBody -bodyasHTML -priority High -Encoding $TextEncoding -ErrorAction Continue     
     }
     
     end {
